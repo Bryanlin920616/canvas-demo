@@ -8,9 +8,15 @@
             border: 1px solid #000;
             margin: 20px;
         }
+        .toolbar {
+            margin: 20px;
+        }
     </style>
 </head>
 <body>
+    <div class="toolbar">
+        <button onclick="deleteSelected()">刪除選中物件</button>
+    </div>
     <canvas id="canvas" width="800" height="600"></canvas>
     <script src="wasm_exec.js"></script>
     <script>
@@ -41,6 +47,19 @@
             canvas.addEventListener('mouseleave', (e) => {
                 stopDrawing(e);
             });
+
+            // 鍵盤事件監聽
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Delete' || e.key === 'Backspace') {
+                    deleteSelected();
+                }
+            });
+        }
+
+        function deleteSelected() {
+            if (typeof deleteSelectedShape === 'function') {
+                deleteSelectedShape();
+            }
         }
     </script>
 </body>

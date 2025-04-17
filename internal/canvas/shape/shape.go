@@ -12,12 +12,28 @@ type Point struct {
 	Y float64
 }
 
+// ControlPoint 類型定義控制點的位置
+type ControlPoint int
+
+const (
+	None ControlPoint = iota
+	TopLeft
+	TopRight
+	BottomLeft
+	BottomRight
+	Rotate
+)
+
 // Shape 定義基本形狀介面
 type Shape interface {
 	Draw(ctx js.Value)
 	Contains(p Point) bool
 	Move(dx, dy float64)
 	GetBounds() Bounds
+	Scale(sx, sy float64, center Point)
+	Delete()
+	DrawControls(ctx js.Value)
+	HitControl(p Point) ControlPoint
 }
 
 // Bounds 表示形狀的邊界
@@ -30,8 +46,9 @@ type Bounds struct {
 
 // Line 表示線段
 type Line struct {
-	Points []Point
-	Style  Style
+	Points     []Point
+	Style      Style
+	isSelected bool
 }
 
 // Style 定義形狀的樣式
@@ -70,6 +87,98 @@ func (l *Line) Draw(ctx js.Value) {
 	}
 
 	ctx.Call("stroke")
+
+	if l.isSelected {
+		l.DrawControls(ctx)
+	}
+}
+
+// DrawControls 繪製控制點
+func (l *Line) DrawControls(ctx js.Value) {
+	bounds := l.GetBounds()
+
+	// 保存當前繪圖狀態
+	ctx.Call("save")
+
+	// 設置控制點樣式
+	ctx.Set("fillStyle", "#ffffff")
+	ctx.Set("strokeStyle", "#000000")
+	ctx.Set("lineWidth", 1)
+
+	// 繪製邊界框
+	ctx.Call("beginPath")
+	ctx.Call("rect", bounds.X, bounds.Y, bounds.Width, bounds.Height)
+	ctx.Call("stroke")
+
+	const controlSize = 5.0 // 增加控制點大小
+
+	// 繪製控制點
+	controlPoints := []struct {
+		x, y float64
+	}{
+		{bounds.X, bounds.Y},                                // TopLeft
+		{bounds.X + bounds.Width, bounds.Y},                 // TopRight
+		{bounds.X, bounds.Y + bounds.Height},                // BottomLeft
+		{bounds.X + bounds.Width, bounds.Y + bounds.Height}, // BottomRight
+	}
+
+	for _, cp := range controlPoints {
+		ctx.Call("beginPath")
+		ctx.Call("arc", cp.x, cp.y, controlSize, 0, 2*3.14159, false)
+		ctx.Call("fill")
+		ctx.Call("stroke")
+	}
+
+	// 恢復繪圖狀態
+	ctx.Call("restore")
+}
+
+// HitControl 檢查是否點擊到控制點
+func (l *Line) HitControl(p Point) ControlPoint {
+	bounds := l.GetBounds()
+	const controlSize = 5.0         // 視覺上的控制點大小
+	const hitArea = controlSize * 4 // 增加點選範圍到視覺大小的4倍
+
+	// 檢查各個控制點
+	controlPoints := []struct {
+		point ControlPoint
+		x, y  float64
+	}{
+		{TopLeft, bounds.X, bounds.Y},
+		{TopRight, bounds.X + bounds.Width, bounds.Y},
+		{BottomLeft, bounds.X, bounds.Y + bounds.Height},
+		{BottomRight, bounds.X + bounds.Width, bounds.Y + bounds.Height},
+	}
+
+	for _, cp := range controlPoints {
+		if distance(p, Point{X: cp.x, Y: cp.y}) <= hitArea {
+			return cp.point
+		}
+	}
+
+	return None
+}
+
+// Scale 縮放線段
+func (l *Line) Scale(sx, sy float64, center Point) {
+	for i := range l.Points {
+		// 相對於中心點進行縮放
+		dx := l.Points[i].X - center.X
+		dy := l.Points[i].Y - center.Y
+
+		l.Points[i].X = center.X + dx*sx
+		l.Points[i].Y = center.Y + dy*sy
+	}
+}
+
+// Delete 刪除線段（空實現，實際刪除操作在 CanvasManager 中處理）
+func (l *Line) Delete() {
+	// 空實現
+}
+
+// SetSelected 設置選中狀態
+func (l *Line) SetSelected(selected bool) {
+	l.isSelected = selected
 }
 
 // Contains 檢查點是否在線段上
