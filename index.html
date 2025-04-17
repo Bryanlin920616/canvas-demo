@@ -1,50 +1,47 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="UTF-8" />
-  <title>Go WASM Canvas</title>
-  <style>
-    canvas { border: 1px solid black; }
-  </style>
+    <meta charset="utf-8">
+    <title>Canvas Demo</title>
+    <style>
+        #canvas {
+            border: 1px solid #000;
+            margin: 20px;
+        }
+    </style>
 </head>
 <body>
-  <h3>🖌️ 使用滑鼠畫線（Go 處理線段）</h3>
-  <canvas id="canvas" width="600" height="400"></canvas>
-  <script src="wasm_exec.js"></script>
-  <script>
-    const go = new Go();
-    WebAssembly.instantiateStreaming(fetch("main.wasm"), go.importObject).then((result) => {
-      go.run(result.instance);
-    });
+    <canvas id="canvas" width="800" height="600"></canvas>
+    <script src="wasm_exec.js"></script>
+    <script>
+        // 初始化 WebAssembly
+        const go = new Go();
+        WebAssembly.instantiateStreaming(fetch("main.wasm"), go.importObject)
+            .then((result) => {
+                go.run(result.instance);
+                initCanvas();
+            });
 
-    const canvas = document.getElementById("canvas");
-    const ctx = canvas.getContext("2d");
-
-    let isDrawing = false;
-    let lastX = 0;
-    let lastY = 0;
-
-    canvas.addEventListener("mousedown", e => {
-      isDrawing = true;
-      [lastX, lastY] = [e.offsetX, e.offsetY];
-    });
-
-    canvas.addEventListener("mousemove", e => {
-      if (!isDrawing) return;
-      const [x, y] = [e.offsetX, e.offsetY];
-      const result = window.drawLine(lastX, lastY, x, y); // 呼叫 Go WASM 處理
-
-      // 畫線
-      ctx.beginPath();
-      ctx.moveTo(result[0], result[1]);
-      ctx.lineTo(result[2], result[3]);
-      ctx.stroke();
-
-      [lastX, lastY] = [x, y];
-    });
-
-    canvas.addEventListener("mouseup", () => isDrawing = false);
-    canvas.addEventListener("mouseout", () => isDrawing = false);
-  </script>
+        function initCanvas() {
+            const canvas = document.getElementById('canvas');
+            
+            // 滑鼠事件監聽
+            canvas.addEventListener('mousedown', (e) => {
+                startDrawing(e);
+            });
+            
+            canvas.addEventListener('mousemove', (e) => {
+                drawing(e);
+            });
+            
+            canvas.addEventListener('mouseup', (e) => {
+                stopDrawing(e);
+            });
+            
+            canvas.addEventListener('mouseleave', (e) => {
+                stopDrawing(e);
+            });
+        }
+    </script>
 </body>
 </html>
