@@ -58,12 +58,22 @@ func NewText(position Point, textStyle TextStyle) *Text {
 
 	// 添加事件監聽器
 	input.Call("addEventListener", "mousedown", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		args[0].Call("stopPropagation")
+		args[0].Call("stopPropagation") // 阻止冒泡到 Canvas
 		return nil
 	}))
 
 	input.Call("addEventListener", "input", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		text.Content = input.Get("value").String()
+		return nil
+	}))
+
+	// 阻止 Delete 和 Backspace 鍵冒泡到 document
+	input.Call("addEventListener", "keydown", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		event := args[0]
+		key := event.Get("key").String()
+		if key == "Delete" || key == "Backspace" {
+			event.Call("stopPropagation")
+		}
 		return nil
 	}))
 
