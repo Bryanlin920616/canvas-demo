@@ -25,6 +25,7 @@ func main() {
 	js.Global().Set("drawing", js.FuncOf(drawing))
 	js.Global().Set("stopDrawing", js.FuncOf(stopDrawing))
 	js.Global().Set("deleteSelectedShape", js.FuncOf(deleteSelectedShape))
+	js.Global().Set("setCurrentTool", js.FuncOf(setCurrentTool))
 
 	<-c
 }
@@ -50,5 +51,13 @@ func stopDrawing(this js.Value, args []js.Value) interface{} {
 
 func deleteSelectedShape(this js.Value, args []js.Value) interface{} {
 	canvasManager.DeleteSelected()
+	return nil
+}
+
+func setCurrentTool(this js.Value, args []js.Value) interface{} {
+	if len(args) > 0 {
+		tool := args[0].String()
+		canvasManager.SetCurrentTool(tool)
+	}
 	return nil
 }

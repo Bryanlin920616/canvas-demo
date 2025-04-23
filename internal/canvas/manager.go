@@ -17,6 +17,7 @@ type CanvasManager struct {
 	height        float64
 	shapes        []shape.Shape
 	currentLine   *shape.Line
+	currentText   *shape.Text
 	selectedShape shape.Shape
 	isDragging    bool
 	isScaling     bool
@@ -24,6 +25,7 @@ type CanvasManager struct {
 	lastX         float64
 	lastY         float64
 	scaleCenter   shape.Point
+	currentTool   string // 當前選擇的工具：line, text
 }
 
 // NewCanvasManager 創建新的 Canvas 管理器
@@ -33,12 +35,18 @@ func NewCanvasManager(canvasID string) *CanvasManager {
 	ctx := canvas.Call("getContext", "2d")
 
 	return &CanvasManager{
-		canvas: canvas,
-		ctx:    ctx,
-		width:  canvas.Get("width").Float(),
-		height: canvas.Get("height").Float(),
-		shapes: make([]shape.Shape, 0),
+		canvas:      canvas,
+		ctx:         ctx,
+		width:       canvas.Get("width").Float(),
+		height:      canvas.Get("height").Float(),
+		shapes:      make([]shape.Shape, 0),
+		currentTool: "line", // 預設工具為畫線
 	}
+}
+
+// SetCurrentTool 設置當前工具
+func (cm *CanvasManager) SetCurrentTool(tool string) {
+	cm.currentTool = tool
 }
 
 // Clear 清除整個畫布
@@ -76,9 +84,20 @@ func (cm *CanvasManager) StartDrawing(x, y float64) {
 	// 檢查是否點擊到現有形狀
 	clickedShape := cm.findShapeAt(p)
 	if clickedShape != nil {
-		if cm.selectedShape != nil {
-			cm.setSelectedShape(nil)
+		// 如果點擊到的是當前選中的文字物件，開始編輯
+		if textObj, ok := clickedShape.(*shape.Text); ok && clickedShape == cm.selectedShape {
+			textObj.StartEditing(cm.canvas.Call("getBoundingClientRect"))
+			return
 		}
+
+		// 如果之前有選中的文字物件，停止編輯
+		if cm.selectedShape != nil {
+			if textObj, ok := cm.selectedShape.(*shape.Text); ok {
+				textObj.StopEditing()
+			}
+		}
+
+		// 設置新的選中物件
 		cm.setSelectedShape(clickedShape)
 		cm.isDragging = true
 		cm.lastX = x
@@ -88,15 +107,32 @@ func (cm *CanvasManager) StartDrawing(x, y float64) {
 
 	// 如果沒有點擊到形狀，取消當前選中
 	if cm.selectedShape != nil {
+		if textObj, ok := cm.selectedShape.(*shape.Text); ok {
+			textObj.StopEditing()
+		}
 		cm.setSelectedShape(nil)
 	}
 
-	// 開始新的線段
-	cm.currentLine = shape.NewLine(shape.Style{
-		StrokeStyle: cm.ctx.Get("strokeStyle").String(),
-		LineWidth:   cm.ctx.Get("lineWidth").Float(),
-	})
-	cm.currentLine.AddPoint(p)
+	// 根據當前工具開始相應的操作
+	switch cm.currentTool {
+	case "line":
+		// 開始新的線段
+		cm.currentLine = shape.NewLine(shape.Style{
+			StrokeStyle: cm.ctx.Get("strokeStyle").String(),
+			LineWidth:   cm.ctx.Get("lineWidth").Float(),
+		})
+		cm.currentLine.AddPoint(p)
+	case "text":
+		// 創建新的文字
+		newText := shape.NewText(p, shape.TextStyle{
+			Font:      "20px Arial",
+			FillStyle: "#000000",
+			Size:      20,
+		})
+		cm.shapes = append(cm.shapes, newText)
+		cm.setSelectedShape(newText)
+		newText.StartEditing(cm.canvas.Call("getBoundingClientRect"))
+	}
 }
 
 // Draw 繪製
@@ -195,6 +231,10 @@ func (cm *CanvasManager) DeleteSelected() {
 	// 從形狀列表中移除
 	for i, s := range cm.shapes {
 		if s == cm.selectedShape {
+			// 如果是文字物件，需要移除 HTML 元素
+			if textObj, ok := s.(*shape.Text); ok {
+				textObj.Delete()
+			}
 			cm.shapes = append(cm.shapes[:i], cm.shapes[i+1:]...)
 			break
 		}
@@ -208,8 +248,11 @@ func (cm *CanvasManager) DeleteSelected() {
 func (cm *CanvasManager) setSelectedShape(s shape.Shape) {
 	// 取消之前選中形狀的選中狀態
 	if cm.selectedShape != nil {
-		if line, ok := cm.selectedShape.(*shape.Line); ok {
-			line.SetSelected(false)
+		switch v := cm.selectedShape.(type) {
+		case *shape.Line:
+			v.SetSelected(false)
+		case *shape.Text:
+			v.SetSelected(false)
 		}
 	}
 
@@ -217,8 +260,11 @@ func (cm *CanvasManager) setSelectedShape(s shape.Shape) {
 
 	// 設置新形狀的選中狀態
 	if s != nil {
-		if line, ok := s.(*shape.Line); ok {
-			line.SetSelected(true)
+		switch v := s.(type) {
+		case *shape.Line:
+			v.SetSelected(true)
+		case *shape.Text:
+			v.SetSelected(true)
 		}
 	}
 

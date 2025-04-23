@@ -11,15 +11,31 @@
         .toolbar {
             margin: 20px;
         }
+        .tool-button {
+            padding: 8px 16px;
+            margin-right: 10px;
+            cursor: pointer;
+            border: 1px solid #ccc;
+            background-color: #fff;
+            border-radius: 4px;
+        }
+        .tool-button.active {
+            background-color: #e0e0e0;
+            border-color: #999;
+        }
     </style>
 </head>
 <body>
     <div class="toolbar">
+        <button id="lineTool" class="tool-button active" onclick="selectTool('line')">畫筆</button>
+        <button id="textTool" class="tool-button" onclick="selectTool('text')">文字</button>
         <button onclick="deleteSelected()">刪除選中物件</button>
     </div>
     <canvas id="canvas" width="800" height="600"></canvas>
     <script src="wasm_exec.js"></script>
     <script>
+        let currentTool = 'line';
+
         // 初始化 WebAssembly
         const go = new Go();
         WebAssembly.instantiateStreaming(fetch("main.wasm"), go.importObject)
@@ -27,6 +43,19 @@
                 go.run(result.instance);
                 initCanvas();
             });
+
+        function selectTool(tool) {
+            currentTool = tool;
+            // 更新按鈕狀態
+            document.querySelectorAll('.tool-button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.getElementById(tool + 'Tool').classList.add('active');
+            // 通知 Go 代碼切換工具
+            if (typeof setCurrentTool === 'function') {
+                setCurrentTool(tool);
+            }
+        }
 
         function initCanvas() {
             const canvas = document.getElementById('canvas');
